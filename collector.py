@@ -1,41 +1,41 @@
 import os
 import pandas as pd
-import datetime
 import snscrape.modules.twitter as sntwitter
-
-# Create data folder if not exists
-os.makedirs("data", exist_ok=True)
+from datetime import datetime
 
 def collect_tweets():
-    query = "Bihar election OR biharvoting OR biharpolling since:2025-01-01 until:2025-09-01 lang:en"
+    # Simple query (no since/until at first)
+    query = "Bihar election lang:en"
     tweets = []
 
-    # Limit to 100 tweets per run (can increase)
-    for i, tweet in enumerate(sntwitter.TwitterSearchScraper(query).get_items()):
-        if i >= 100:
-            break
-        tweets.append([
-            tweet.date,
-            tweet.id,
-            tweet.content,
-            tweet.user.username,
-            tweet.lang,
-            tweet.likeCount,
-            tweet.retweetCount
-        ])
+    try:
+        for i, tweet in enumerate(sntwitter.TwitterSearchScraper(query).get_items()):
+            if i >= 100:  # limit to 100 tweets per run
+                break
+            tweets.append([
+                tweet.date, 
+                tweet.id, 
+                tweet.content, 
+                tweet.user.username, 
+                tweet.url
+            ])
 
-    # Convert to DataFrame
-    df = pd.DataFrame(tweets, columns=[
-        "date", "id", "content", "username", "lang", "likes", "retweets"
-    ])
+    except Exception as e:
+        print(f"⚠️ Error while scraping: {e}")
+        return None
 
-    # Save to CSV
-    today = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    filepath = f"data/tweets_{today}.csv"
-    df.to_csv(filepath, index=False, encoding="utf-8")
+    if not tweets:
+        print("⚠️ No tweets collected this run.")
+        return None
 
-    print(f"✅ Saved {len(df)} tweets to {filepath}")
-    return filepath
+    # Save to CSV in /data
+    df = pd.DataFrame(tweets, columns=["date", "id", "content", "user", "url"])
+    os.makedirs("data", exist_ok=True)
+    filename = f"data/tweets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    df.to_csv(filename, index=False)
+
+    print(f"✅ Saved {len(df)} tweets to {filename}")
+    return filename
 
 if __name__ == "__main__":
     collect_tweets()
