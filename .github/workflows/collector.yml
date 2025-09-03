@@ -2,8 +2,8 @@ name: Collect Tweets
 
 on:
   schedule:
-    - cron: "0 * * * *"   # runs every hour
-  workflow_dispatch:       # allow manual trigger
+    - cron: "0 * * * *"   # Run every hour
+  workflow_dispatch:       # Allow manual trigger
 
 jobs:
   collect:
@@ -16,23 +16,27 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
-
-      - name: Generate requirements.txt
-        run: |
-          echo "pandas" > requirements.txt
-          echo "snscrape" >> requirements.txt
+          python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Run collector
         run: python collector.py
 
-      - name: Commit & push data
+      - name: Commit and push collected data
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/*.csv requirements.txt
-          git commit -m "Update tweets on $(date)" || echo "No new files to commit"
-          git push
+
+          # Check for CSV files and commit only if new data exists
+          CSV_FILES=$(ls data/*.csv 2>/dev/null || true)
+          if [ -n "$CSV_FILES" ]; then
+            git add data/*.csv
+            git diff --cached --quiet || git commit -m "Add tweets collected on $(date)"
+            git push
+          else
+            echo "No CSV files found, skipping commit."
+          fi
