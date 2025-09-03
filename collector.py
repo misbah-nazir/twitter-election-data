@@ -3,45 +3,39 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# Ensure data folder exists
-os.makedirs("data", exist_ok=True)
-
 def collect_tweets():
+    # Ensure data directory exists
+    os.makedirs("data", exist_ok=True)
+
+    # Example query: English tweets about Bihar election since 2025-01-01
     query = "Bihar election lang:en since:2025-01-01"
-    limit = 50  # number of tweets per run
 
     tweets = []
-    for i, tweet in enumerate(sntwitter.TwitterSearchScraper(query).get_items()):
-        if i >= limit:
-            break
-        tweets.append([
-            tweet.date,
-            tweet.id,
-            tweet.user.username,
-            tweet.content,
-            tweet.url
-        ])
+    try:
+        for i, tweet in enumerate(sntwitter.TwitterSearchScraper(query).get_items()):
+            if i >= 100:   # limit for each run to avoid overload
+                break
+            tweets.append([
+                tweet.date,
+                tweet.id,
+                tweet.content,
+                tweet.user.username,
+                tweet.url
+            ])
+    except Exception as e:
+        print(f"⚠️ Error while scraping: {e}")
+        return
 
-    # Save hourly snapshot
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    hourly_file = f"data/tweets_{timestamp}.csv"
+    if tweets:
+        df = pd.DataFrame(tweets, columns=["date", "id", "content", "username", "url"])
 
-    df = pd.DataFrame(tweets, columns=["date", "id", "username", "content", "url"])
-    df.to_csv(hourly_file, index=False, encoding="utf-8")
-    print(f"✅ Saved {len(df)} tweets to {hourly_file}")
-
-    # Merge into master file (deduplicated by tweet id)
-    master_file = "data/all_tweets.csv"
-
-    if os.path.exists(master_file):
-        old_df = pd.read_csv(master_file)
-        combined = pd.concat([old_df, df]).drop_duplicates(subset="id", keep="first")
+        # Save with timestamp so we don't overwrite old data
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M")
+        filename = f"data/tweets_{timestamp}.csv"
+        df.to_csv(filename, index=False, encoding="utf-8")
+        print(f"✅ Saved {len(df)} tweets to {filename}")
     else:
-        combined = df
-
-    combined.to_csv(master_file, index=False, encoding="utf-8")
-    print(f"🗂️ Master file updated: {len(combined)} unique tweets saved in {master_file}")
-
+        print("⚠️ No tweets found for this query.")
 
 if __name__ == "__main__":
     collect_tweets()
